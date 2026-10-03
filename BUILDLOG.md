@@ -60,3 +60,19 @@ and what I (Ignacio) changed or decided. Updated as the work happens, not afterw
 - `.gitignore` + MIT license — committed first so `.env` can never be committed.
 - BUILDLOG started; `.env.example` added.
 - DESIGN.md (Phase 1 gate) + `MIN_POST_CONFIDENCE` in `.env.example`.
+
+### Guard built first (my call, overriding the phase table)
+- `app/domain/taxonomy.py` — `Category`/`SubjectKey` as `StrEnum`s plus a `label()` helper
+  (`red_fox` → "red fox") used in explanations. Claude Code wrote it; small enough to read in full.
+- `app/services/guard.py` — pure module. `evaluate()` runs G5 → G1 → G2 → G3 → G4, first failure is
+  the reason; `decide()` sorts candidates by similarity itself (so "highest-ranked" can't depend on
+  the caller's order), evaluates all of them, suggests the first accepted one. Accepted verdicts also
+  carry a reason ("Subject red fox matches the post, similarity …") for the "inspect why" endpoint later.
+- Not added (to avoid another unapproved deviation): a subject→category consistency check
+  (e.g. rejecting a vision answer `category=food, subject=red_fox`). Worth proposing in Phase 2.
+- `tests/test_guard.py` — 20 tests incl. the wolf-on-fox G3 rejection with the exact reason string,
+  `other == other` gap closed by G5, and a post at 0.65 confidence still matching (proves G5 uses
+  `MIN_POST_CONFIDENCE`, not the image threshold). All 20 passed on the first run.
+- Since passing on the first try proves little, it ran the suite against a scratch copy of the guard
+  with G3 disabled: 3 tests failed (wolf-on-fox, second-candidate-suggested, no-confident-match),
+  so the tests really do protect that rule.
