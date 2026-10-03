@@ -37,5 +37,26 @@ and what I (Ignacio) changed or decided. Updated as the work happens, not afterw
   that none of the agreed points (guard first, sole authorship, G3-for-Probe-3) were lost,
   and put them back into the plan explicitly.
 
+### DESIGN.md review — where the AI deviated from the approved plan
+- **Unapproved change, caught by me:** in the DESIGN.md draft Claude Code changed the guard so that
+  G5 runs *first* and also fires on low post-extraction confidence (reusing `MIN_CONFIDENCE`). The
+  plan I approved had G1→G5 in order with G5 = "post subject is `other`" only. It flagged the change
+  when presenting the draft, but it should have asked before writing it.
+- I asked whether that was the only deviation. It re-audited and admitted it had also silently filled
+  in schema details the plan didn't specify (indexes on `images.status` and
+  `image_tags(category, subject_key)`; extra columns on `suggestions`, `reviews`, `jobs`, `ai_calls`).
+  Additive only, no behaviour change — accepted.
+- I had it walk through Probe 3 and Probe 4 under the new order. Outcome unchanged for both, and the
+  new order closes a gap (an image tagged `other` could have matched an off-taxonomy post via
+  `other == other`). But it also surfaced a risk *it had introduced*: with G5 reusing the 0.70 image
+  threshold, a fox post extracted at e.g. 0.65 confidence would be refused entirely, breaking Probe 2.
+- **My decision:** approve G5-first, but with its own threshold `MIN_POST_CONFIDENCE` (provisional
+  0.50) instead of reusing `MIN_CONFIDENCE`. Applied to DESIGN.md, `.env.example`, and the guard's
+  `Thresholds` model.
+- Small fix while applying it: the G5 example reason named the topic ("penguin"), but `PostSubject`
+  has no free-text subject field, so the guard can't know that word. Example reworded.
+
 ### Commits this session
 - `.gitignore` + MIT license — committed first so `.env` can never be committed.
+- BUILDLOG started; `.env.example` added.
+- DESIGN.md (Phase 1 gate) + `MIN_POST_CONFIDENCE` in `.env.example`.
