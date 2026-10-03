@@ -1,0 +1,23 @@
+# Secrets — never commit. Ship .env.example instead.
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Raw, un-resized downloads (only the resized corpus in data/images/ is committed)
+data/raw/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
