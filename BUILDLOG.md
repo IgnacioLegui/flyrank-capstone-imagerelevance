@@ -83,3 +83,18 @@ and what I (Ignacio) changed or decided. Updated as the work happens, not afterw
   requirements from 9.1 (S1–S7, also part of Section 9) and the 6 acceptance probes (P1–P6).
   Left empty on purpose — the guard unit tests prove the *logic* of R7/R8, but the probes need the
   real system, so proofs get pasted when they come from real runs.
+
+### Shot list + resize script (I asked for numbered entries, search queries, exact filenames, CREDITS template)
+- `data/SHOTLIST.md`: 50 numbered rows, each with filename, what to look for, and a search query.
+  Every row is a distinct scene (fox in snow, fox cub, …) so Phase 4 eval posts can each have one
+  correct image. Wolves and fox-coloured dogs (Shiba, red Husky, Corgi) are deliberate look-alikes.
+- Filenames: I gave `fox_01.jpg` as an example; Claude Code used the taxonomy key instead
+  (`red_fox_01.jpg`, `gray_wolf_01.jpg`) so filename prefix ↔ `SubjectKey` is 1:1 for labeling, and the
+  script checks every prefix exists in the taxonomy. The pipeline must never use filenames for matching
+  (the brief forbids it) — noted in the shot list.
+- `scripts/resize_images.py` reads the expected names *from SHOTLIST.md* (no second copy of the list),
+  resizes to 1024 px / JPEG q80, strips EXIF after applying its rotation, reports missing/unexpected
+  files, and creates/extends `data/images/CREDITS.md` without overwriting rows I've filled in.
+- Tested on synthetic images in a scratch folder (4000×3000 JPEG, transparent PNG, EXIF-rotated photo,
+  a stray `red_fox_01 (1).jpg`, and a re-run after filling in one credit) — all behaved as intended.
+- AI slip: the shot-list commit went in without its BUILDLOG entry; this entry covers it.
