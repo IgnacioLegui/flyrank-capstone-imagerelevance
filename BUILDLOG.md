@@ -76,3 +76,10 @@ and what I (Ignacio) changed or decided. Updated as the work happens, not afterw
 - Since passing on the first try proves little, it ran the suite against a scratch copy of the guard
   with G3 disabled: 3 tests failed (wolf-on-fox, second-candidate-suggested, no-confident-match),
   so the tests really do protect that rule.
+
+### README stub + EVIDENCE skeleton
+- README is a stub: purpose, Phase 1 status, links to DESIGN/EVIDENCE/BUILDLOG, how to run the guard tests.
+- EVIDENCE.md has an empty slot for all 13 Section 9 checklist boxes (R1–R13), the 7 shared
+  requirements from 9.1 (S1–S7, also part of Section 9) and the 6 acceptance probes (P1–P6).
+  Left empty on purpose — the guard unit tests prove the *logic* of R7/R8, but the probes need the
+  real system, so proofs get pasted when they come from real runs.
