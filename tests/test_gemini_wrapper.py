@@ -103,8 +103,9 @@ def test_schema_sent_to_gemini_has_no_refs():
 
 def test_valid_answer_is_parsed_and_logged_with_cost():
     vision, _, log = make()
-    tags = vision.tag_image(b"jpeg-bytes", CTX)
-    assert tags.subject_key.value == "red_fox"
+    result = vision.tag_image(b"jpeg-bytes", CTX)
+    assert result.value.subject_key.value == "red_fox"
+    assert result.raw_text == VALID_JSON
 
     (row,) = log.rows
     assert row.outcome == "ok"

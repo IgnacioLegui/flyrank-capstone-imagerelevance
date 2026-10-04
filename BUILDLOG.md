@@ -214,3 +214,12 @@ and what I (Ignacio) changed or decided. Updated as the work happens, not afterw
   real smoke test.
 - `DbCostLog` (ai_calls repository) commits each cost row in its own transaction, so a call is never
   "un-logged" by a later rollback. Smoke-checked against Postgres. 68 tests passing.
+
+### Step 6 — tagging service
+- `app/services/tagging.py::tag_one()`: up to 3 attempts; invalid output or server/network error uses
+  an attempt; valid + confidence < `MIN_CONFIDENCE` → **flagged** (kept, never matched); valid and
+  confident → **tagged**; out of attempts → **failed** with the last error. 429 and budget-exceeded
+  are passed up to the worker without using an attempt (being too fast isn't a wrong answer).
+- Small change to the step-5 wrapper: it now returns `Parsed(value, raw_text)` so
+  `image_tags.raw_response` stores the model's JSON exactly as received, not our re-serialized copy.
+- 8 tests with a scripted fake tagger. 76 tests passing.

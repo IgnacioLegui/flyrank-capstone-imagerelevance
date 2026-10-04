@@ -17,7 +17,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Protocol, TypeVar
+from typing import Any, Generic, Protocol, TypeVar
 
 from google import genai
 from google.genai import errors, types
@@ -84,6 +84,14 @@ class CostLog(Protocol):
 
 
 @dataclass
+class Parsed(Generic[T]):
+    """A validated answer plus the exact text the model sent (kept for inspection/auditing)."""
+
+    value: T
+    raw_text: str
+
+
+@dataclass
 class CallContext:
     """Who the call is for — so every cost row is attributed to a job and an image/post."""
 
@@ -147,7 +155,7 @@ class GeminiVision:
     def model(self) -> str:
         return self._model
 
-    def tag_image(self, image_bytes: bytes, ctx: CallContext) -> ImageTags:
+    def tag_image(self, image_bytes: bytes, ctx: CallContext) -> Parsed[ImageTags]:
         """Classify one image. Takes raw bytes only, so a filename has no way into the request."""
         return self.call(
             contents=[
@@ -168,7 +176,7 @@ class GeminiVision:
         config: types.GenerateContentConfig,
         parse: Callable[[str], T],
         ctx: CallContext,
-    ) -> T:
+    ) -> Parsed[T]:
         spent = self._cost_log.total_spent_usd()
         if spent >= self._budget:
             raise BudgetExceeded(f"AI budget reached: ${spent:.4f} spent of ${self._budget:.2f}")
@@ -222,4 +230,4 @@ class GeminiVision:
 
         record.outcome = "ok"
         self._cost_log.record(record)
-        return parsed
+        return Parsed(value=parsed, raw_text=text)
