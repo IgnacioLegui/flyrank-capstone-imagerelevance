@@ -268,3 +268,26 @@ and what I (Ignacio) changed or decided. Updated as the work happens, not afterw
 - 22 API tests. **117 tests passing.** (One harmless warning: Starlette suggests `httpx2` for its
   test client; left visible rather than hidden.)
 - Stopped here: step 9 (smoke test with real Gemini calls) waits for my RPM/RPD numbers.
+
+### Step 9 — 3-image smoke test (first real Gemini calls)
+- AI Studio shows RPM 15 / RPD 500 for `gemini-3.5-flash-lite` on my project. I set `GEMINI_RPM=10`
+  (headroom under 15). Worker recreated (a plain restart doesn't re-read `.env`); log confirms `rpm=10.0`.
+- Job 1 via `scripts/enqueue_ingest.py --only red_fox_01.jpg gray_wolf_01.jpg ambiguous_02.jpg`:
+  succeeded 3/3, requests ~6 s apart (pacing works), 1 HTTP request and 1 `ai_calls` row per image.
+  - `red_fox_01` → tagged `red_fox`, confidence 0.98
+  - `gray_wolf_01` → tagged `gray_wolf`, confidence 0.95
+  - `ambiguous_02` (orange cat-fur macro) → **flagged**: `subject_key=red_fox`, subject "red fox fur",
+    confidence 0.40. Low confidence → excluded from matching. Note: the prompt says to use `other`
+    when unsure, but the model still picked `red_fox` (with a low score) — the confidence threshold,
+    not the label, is what saved it.
+- Gemini accepted our inlined JSON schema (no 400). `thoughts_token_count` was 0 for all 3 calls
+  (Flash-Lite didn't think). ~1,370 input tokens per image. Cost check by hand for call 2:
+  1362 × $0.30/1M + 70 × $2.50/1M = $0.0005836 = stored `0.00058360`. Total for 3 calls: $0.0019244.
+- Security check: grepped the worker logs for the key value → 0 matches. The logged request URL has
+  no key (the SDK sends it as a header).
+- Noticed: the SDK logs "AFC is enabled with max remote calls: 10" (automatic function calling).
+  It only acts when tools are passed — we pass none, and the logs show exactly 1 request per call.
+  Proposed disabling it explicitly as a safeguard; waiting for my go.
+- Explained a gap: image/ai_call ids start at 2 — the CHECK-constraint test insert in step 4 and the
+  cost-log smoke check in step 5 consumed sequence values (Postgres sequences don't roll back).
+  Real DB contains only the smoke-test data; tests use the separate `imagerelevance_test` DB.
