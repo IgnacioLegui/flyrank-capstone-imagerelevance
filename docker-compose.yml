@@ -1,3 +1,11 @@
+x-app: &app
+  build: .
+  # .env is optional: without it the API still runs; the worker fails jobs with
+  # "GEMINI_API_KEY is not set" instead of crashing.
+  env_file:
+    - path: .env
+      required: false
+
 services:
   db:
     image: postgres:16-alpine
@@ -14,6 +22,37 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
+
+  api:
+    <<: *app
+    # Migrations run before the API starts, so the schema is always current
+    command: sh -c "alembic upgrade head && uvicorn app.api.main:app --host 0.0.0.0 --port 8000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/imagerelevance
+      GEMINI_API_KEY: ""  # least privilege: the API never calls Gemini, so it doesn't get the key
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+
+  worker:
+    <<: *app
+    command: python -m worker.main
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/imagerelevance
+      IMAGES_DIR: /app/data/images
+    volumes:
+      - ./data/images:/app/data/images:ro  # the corpus, read-only: the worker can never modify it
+    depends_on:
+      api:
+        condition: service_healthy  # i.e. migrations have run
+    restart: unless-stopped
 
 volumes:
   pgdata:

@@ -17,6 +17,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.models import Job
@@ -37,9 +38,26 @@ def create_job(
         if existing is not None:
             return existing, False
     job = Job(type=job_type, payload=payload, idempotency_key=idempotency_key)
-    session.add(job)
-    session.flush()  # assigns job.id
+    try:
+        with session.begin_nested():  # savepoint: a duplicate key only undoes this insert
+            session.add(job)
+            session.flush()  # assigns job.id; raises if the key was inserted concurrently
+    except IntegrityError:
+        # Two identical requests raced past the lookup above; the UNIQUE constraint let only one
+        # insert win. Return the winner instead of a 500.
+        return session.scalar(select(Job).where(Job.idempotency_key == idempotency_key)), False
     return job, True
+
+
+def get_job(session: Session, job_id: int) -> Job | None:
+    return session.get(Job, job_id)
+
+
+def list_jobs(session: Session, status: str | None, limit: int) -> list[Job]:
+    query = select(Job).order_by(Job.id.desc()).limit(limit)
+    if status is not None:
+        query = query.where(Job.status == status)
+    return list(session.scalars(query))
 
 
 def claim_next(session: Session) -> Job | None:

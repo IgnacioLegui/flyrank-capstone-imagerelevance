@@ -247,3 +247,24 @@ and what I (Ignacio) changed or decided. Updated as the work happens, not afterw
   (2) Alembic's `fileConfig()` by default *disables existing loggers*, which would have silenced the
   worker's `ALERT` log line whenever migrations run in the same process — fixed with
   `disable_existing_loggers=False`.
+
+### Step 8 — API + compose services + smoke-test script
+- Endpoints: `/health`, `POST /jobs/ingest-images` (202; same `Idempotency-Key` → same job, 200),
+  `GET /jobs/{id}`, `GET /jobs?status=`, `GET /images?status=`, `GET /images/{id}` (tags + raw
+  model JSON + every Gemini call for that image), `GET /costs` (totals per purpose/model + one entry
+  per call). Typed params (ints, enums, bounded lengths) → bad input is a 422; unknown id → 404;
+  database down → 503 via an exception handler, not a bare 500.
+- Idempotency race handled: two simultaneous POSTs with the same key → the UNIQUE constraint lets one
+  insert win (inside a savepoint) and the other returns that job instead of a 500.
+- `scripts/enqueue_ingest.py --only …` creates the `{"only": [...]}` job through the same repository;
+  the API has no such parameter (test: a body sent to the API is ignored, payload stays `{}`).
+- Compose: `api` runs `alembic upgrade head` then uvicorn; `worker` starts only after the API is
+  healthy (= migrations done), with `./data/images` mounted **read-only**. `.env` is optional
+  (`required: false`). Extra I added: the `api` container gets `GEMINI_API_KEY=""` — it never calls
+  Gemini, so it shouldn't hold the key (least privilege).
+- Verified in containers: worker sees 50 images; `touch` on the mount → "Read-only file system";
+  no `.env` inside the image; key length 0 in `api`, present in `worker` (checked without printing
+  it); `/health` ok, `/docs` 200, `/costs` empty, `?status=maybe` → 422, `alembic current` → 0001.
+- 22 API tests. **117 tests passing.** (One harmless warning: Starlette suggests `httpx2` for its
+  test client; left visible rather than hidden.)
+- Stopped here: step 9 (smoke test with real Gemini calls) waits for my RPM/RPD numbers.

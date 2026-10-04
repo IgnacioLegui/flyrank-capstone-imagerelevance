@@ -7,7 +7,7 @@ from pathlib import Path
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.db.models import Image, ImageTag
 from app.domain.vision import ImageTags
@@ -30,6 +30,17 @@ def register_files(session: Session, paths: Iterable[Path]) -> int:
         )
         inserted += result.rowcount
     return inserted
+
+
+def list_images(session: Session, status: str | None, limit: int, offset: int) -> list[Image]:
+    query = select(Image).options(selectinload(Image.tags)).order_by(Image.id).limit(limit).offset(offset)
+    if status is not None:
+        query = query.where(Image.status == status)
+    return list(session.scalars(query))
+
+
+def get_image(session: Session, image_id: int) -> Image | None:
+    return session.scalar(select(Image).options(selectinload(Image.tags)).where(Image.id == image_id))
 
 
 def images_in_scope(session: Session, filenames: list[str]) -> list[Image]:
