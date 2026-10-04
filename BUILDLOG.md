@@ -192,3 +192,25 @@ and what I (Ignacio) changed or decided. Updated as the work happens, not afterw
 - Additions beyond the approved plan, both small: `ai_calls.thinking_tokens` (thinking tokens are billed
   at the output price, so I keep them in their own column to make the cost formula checkable row by
   row) and an index on `images.filename` (the smoke-test script looks images up by filename).
+
+### Step 5 — pricing + Gemini wrapper
+- Re-fetched the pricing page before writing `pricing.py`. `gemini-3.5-flash-lite` row, verbatim:
+  input "$0.30 (text / image / video / audio)", output "$2.50" "including thinking tokens".
+  Each price records its source URL and check date; a model without a price can't be called.
+- Checked the real **google-genai 2.28** API instead of trusting the brief's 1.x snippets:
+  `models.generate_content`, `types.Part.from_bytes`, `response_json_schema` and
+  `usage_metadata.thoughts_token_count` all exist. Read the SDK source: with no retry options it
+  never retries; the wrapper sets `attempts=1` explicitly anyway — a hidden SDK retry would be a
+  billable request with no cost row.
+- **Filename never reaches Gemini:** `tag_image()` takes only `bytes`, sends them with
+  `Part.from_bytes` (no Files API, no display name), and the prompt contains no file info. Test
+  `test_request_contains_image_bytes_but_no_filename_or_path` serializes the whole request built from
+  the real `red_fox_01.jpg` and asserts no "red_fox_01", ".jpg" or path appears in it.
+- One cost row per request, whatever happens: `ok`, `invalid_output` (bad JSON, inconsistent
+  category/subject, no text — tokens still billed), `rate_limited` (429; server's `retryDelay`
+  parsed), `error`. Budget checked before every request.
+- Pydantic's schema puts enums in `$defs` + `$ref`; Gemini's JSON-schema support is partial, so
+  `inline_refs()` substitutes them before sending. Whether Gemini accepts it is confirmed only in the
+  real smoke test.
+- `DbCostLog` (ai_calls repository) commits each cost row in its own transaction, so a call is never
+  "un-logged" by a later rollback. Smoke-checked against Postgres. 68 tests passing.
