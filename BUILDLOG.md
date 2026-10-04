@@ -167,3 +167,14 @@ and what I (Ignacio) changed or decided. Updated as the work happens, not afterw
   into the local venv only. Docker/Linux is unaffected. Documented in README for evaluators on Windows.
   (psycopg's binary build also failed the very first import, then imported fine — likely the policy
   evaluating a brand-new file; noted, no action needed.)
+
+### Step 3 — Docker Compose (Postgres) + DB session
+- `docker-compose.yml` with `db` (postgres:16-alpine, healthcheck with `pg_isready`, named volume).
+  `api` and `worker` services come in step 8, once there's code for them to run.
+- `Dockerfile` written now (python:3.11-slim) but first built in step 8 — it copies folders
+  (`alembic/`, `worker/`) that steps 4 and 7 create. `.dockerignore` excludes `.env`, so the key can
+  never be baked into an image; compose passes env vars at runtime.
+- `app/db/session.py`: engine + `session_scope()` (commit on success, rollback on exception).
+  Rewrites `postgresql://` to `postgresql+psycopg://` so the `.env.example` URL works with psycopg 3.
+- Docker Desktop wasn't running; Claude Code started it. Verified: db container healthy,
+  `session_scope()` connects from the host (PostgreSQL 16.15, driver psycopg).

@@ -1,0 +1,11 @@
+# Never send secrets or local junk into the build context
+.env
+.env.*
+.git
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+data
+wheels
