@@ -20,6 +20,8 @@ from app.domain.vision import ImageTags
 
 
 class Tagger(Protocol):
+    model: str  # stored with each result, so tags from different models never get mixed up
+
     def tag_image(self, image_bytes: bytes, ctx: CallContext) -> Parsed[ImageTags]: ...
 
 

@@ -11,7 +11,9 @@ from app.db.session import sqlalchemy_url
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers=False: running migrations from inside the app (or tests) must not
+    # silence loggers the app already created, like "worker.ingest"
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # Lets `alembic check` / `--autogenerate` compare the models with the real database
 target_metadata = Base.metadata

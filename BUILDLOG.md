@@ -223,3 +223,27 @@ and what I (Ignacio) changed or decided. Updated as the work happens, not afterw
 - Small change to the step-5 wrapper: it now returns `Parsed(value, raw_text)` so
   `image_tags.raw_response` stores the model's JSON exactly as received, not our re-serialized copy.
 - 8 tests with a scripted fake tagger. 76 tests passing.
+
+### Step 7 — job queue + worker
+- `app/repositories/jobs.py`: `claim_next()` uses `SELECT … FOR UPDATE SKIP LOCKED` so two workers
+  can never take the same job; idempotent `create_job()` by key; `requeue_running()` at start-up for
+  jobs orphaned by a dead worker (valid because we run a single worker — noted in the code).
+- `app/services/ingest.py`: the batch job. Fails loudly (job `failed` + `ERROR "ALERT job N failed"`)
+  if `IMAGES_DIR` is missing, empty, or a requested `only` file doesn't exist — my requirement.
+  Registers files with `ON CONFLICT (sha256) DO NOTHING`, then tags pending images one by one.
+  Progress is recomputed from the DB each round, so a paused/crashed job resumes without re-tagging.
+- 429 handling: server `retryDelay` if given, else 30/60/120 s; after 5 consecutive 429s the job
+  is re-queued 1 h later (not failed, attempts not counted). Budget exceeded → job failed + alert.
+- `app/ai/pacing.py`: `Pacer` spaces requests ≥ 60/GEMINI_RPM s apart; plugged into `GeminiVision`
+  so retries are paced too. Tested with a fake clock.
+- `worker/main.py`: poll loop; an unexpected crash re-queues the job with a growing delay, and after
+  `max_attempts` (3) marks it failed with the alert. Logs whether the key is set — never the key.
+- Tests run against a separate `imagerelevance_test` database (auto-created + migrated; skipped if
+  Postgres is down): 17 integration tests incl. the SKIP LOCKED claim with two open sessions,
+  idempotent re-ingest (tagger called 3 times for 2 jobs over 3 images), missing/empty corpus alerts,
+  the 5×429 pause, and crash → retry → fail. **95 tests passing.**
+- Two bugs caught while writing this step: (1) the repository first imported a type from the
+  services layer (wrong direction for the layered design) — changed to plain arguments;
+  (2) Alembic's `fileConfig()` by default *disables existing loggers*, which would have silenced the
+  worker's `ALERT` log line whenever migrations run in the same process — fixed with
+  `disable_existing_loggers=False`.

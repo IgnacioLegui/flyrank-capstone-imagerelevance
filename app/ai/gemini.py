@@ -22,6 +22,7 @@ from typing import Any, Generic, Protocol, TypeVar
 from google import genai
 from google.genai import errors, types
 
+from app.ai.pacing import Pacer
 from app.ai.pricing import cost_usd, price_for
 from app.ai.prompts import VISION_TAGGING_PROMPT
 from app.config import Settings
@@ -145,11 +146,19 @@ def _clip(text: str | None) -> str | None:
 # --- The wrapper --------------------------------------------------------------------------------
 
 class GeminiVision:
-    def __init__(self, client: Any, model: str, cost_log: CostLog, budget_usd: float):
+    def __init__(
+        self,
+        client: Any,
+        model: str,
+        cost_log: CostLog,
+        budget_usd: float,
+        pacer: Pacer | None = None,
+    ):
         self._client = client
         self._model = model
         self._cost_log = cost_log
         self._budget = Decimal(str(budget_usd))
+        self._pacer = pacer
 
     @property
     def model(self) -> str:
@@ -181,6 +190,8 @@ class GeminiVision:
         if spent >= self._budget:
             raise BudgetExceeded(f"AI budget reached: ${spent:.4f} spent of ${self._budget:.2f}")
         price_for(self._model)  # raises UnknownModelPrice before anything is sent
+        if self._pacer is not None:
+            self._pacer.wait()  # every request, retries included, respects GEMINI_RPM
 
         record = CallRecord(
             purpose=ctx.purpose, model=self._model, outcome="error", job_id=ctx.job_id,
