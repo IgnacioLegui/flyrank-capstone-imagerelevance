@@ -98,3 +98,21 @@ and what I (Ignacio) changed or decided. Updated as the work happens, not afterw
 - Tested on synthetic images in a scratch folder (4000×3000 JPEG, transparent PNG, EXIF-rotated photo,
   a stray `red_fox_01 (1).jpg`, and a re-run after filling in one credit) — all behaved as intended.
 - AI slip: the shot-list commit went in without its BUILDLOG entry; this entry covers it.
+
+## 2026-10-04 — Phase 1, session 2: corpus
+
+- I downloaded all 50 images from Unsplash into `data/raw/` (gitignored), ran the resize script, and
+  filled 8 credits rows by hand (`red_fox_01–06`, `ambiguous_01–02`). The other 42 I put in a
+  `credits.txt` (filename | URL | photographer) and had Claude Code merge it.
+- Merge rule I set: never overwrite a row I filled by hand. It filled only empty rows (42), found no
+  conflicts and no unknown filenames, then deleted `credits.txt` (never committed).
+- It found two of my hand-filled rows (`red_fox_01`, `red_fox_03`) wrapped onto two lines, which breaks
+  the markdown table, and re-joined them — values unchanged, shown to me as a before/after diff.
+- Its completeness check first reported 49/50 rows complete; the "missing" one was `red_fox_05`, which
+  is complete but has irregular spacing. Its regex was too strict, not my row wrong — left as-is.
+- It looked at 5 images whose credit titles didn't obviously match the shot list or that Probe 1
+  depends on: `red_fox_01` (Unsplash title says "illustration" but it's a real photo), `dog_05` (dog in
+  snow ✓), `pizza_04` (overhead ✓), `ambiguous_01` (abstract green blur ✓), `ambiguous_02` (orange fur
+  macro ✓, actually a cat's — good fox/dog/cat ambiguity).
+- Verified: 50/50 images match the shot list (no missing, no extras), 5.52 MB total, largest 256 KB,
+  none over 1024 px, no EXIF left, `data/raw/` ignored by git.
