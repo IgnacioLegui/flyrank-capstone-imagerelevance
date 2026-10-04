@@ -116,3 +116,40 @@ and what I (Ignacio) changed or decided. Updated as the work happens, not afterw
   macro ✓, actually a cat's — good fox/dog/cat ambiguity).
 - Verified: 50/50 images match the shot list (no missing, no extras), 5.52 MB total, largest 256 KB,
   none over 1024 px, no EXIF left, `data/raw/` ignored by git.
+- Phase 1 gate confirmed by me; I had it push the 12 commits to GitHub.
+
+---
+
+## 2026-10-04 — Phase 2 (Image understanding pipeline), session 1
+
+### Checking the official docs before hardcoding anything (I asked for this)
+- **Vision model:** Google's models page now says access to the 2.5 models is limited to projects that
+  used them before; new projects should use 3.5 Flash-Lite or 3.8 Flash. The brief says
+  `gemini-2.5-flash`. Claude Code's plan kept 2.5-flash as default "per my choice" with a fallback;
+  I corrected that: the 2.5 choice came from my own outdated brief, and with a new key 2.5-flash can
+  appear in `models.list` and still 404 on `generateContent`. **Decision: default
+  `gemini-3.5-flash-lite`**, configurable via `VISION_MODEL`, priced from its own pricing-page row.
+- **Rate limits:** free-tier numbers are no longer published in the docs, only in my AI Studio
+  dashboard (per project; 429 when exceeded). So the worker paces requests and backs off on 429,
+  and pauses/resumes the job if the daily quota runs out instead of failing.
+- **Structured output:** docs say output is syntactically valid JSON but values must still be
+  validated — we validate everything with our own Pydantic models.
+- **Embedding price:** `gemini-embedding-001` is no longer on the pricing page; $0.15/1M comes from
+  Google's GA announcement. Used in Phase 3.
+
+### Design rules I set for Phase 2
+- The **filename must never reach Gemini** — `red_fox_01.jpg` literally contains the expected label,
+  so sending it would let the model "cheat". Images are sent as inline bytes (no Files API upload,
+  which carries a name), and a test will check the request contains no filename.
+- The 3-image smoke test must use specific images, without adding an API parameter just for that →
+  a CLI script creates that job.
+- Worker must fail loudly if the image folder is missing or empty; images mounted read-only.
+- The 20 existing guard tests must pass **unedited** after adding the consistency check.
+
+### Step 1 — category/subject consistency check (deferred from Phase 1)
+- `SUBJECT_CATEGORY` mapping in `taxonomy.py` (`other` deliberately unmapped: can be any category)
+  and `check_consistent()`, used as a Pydantic validator on the new `ImageTags` vision schema and on
+  the guard's `PostSubject`. An answer like `category=food, subject=red_fox` is *invalid output*
+  (retried), not auto-corrected — correcting it would hide that the model was confused.
+- Ran the unedited `test_guard.py` first (`git diff -- tests/` empty): 20/20 pass. Then added
+  `test_vision_schema.py` (26 tests). Total 46 passing.

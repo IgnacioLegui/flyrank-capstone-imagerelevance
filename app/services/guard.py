@@ -15,9 +15,9 @@ Rules run in a fixed order and the first one that fails becomes the human-readab
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.domain.taxonomy import Category, SubjectKey, label
+from app.domain.taxonomy import Category, SubjectKey, check_consistent, label
 
 
 class GuardRule(StrEnum):
@@ -40,6 +40,11 @@ class PostSubject(BaseModel):
     category: Category
     subject_key: SubjectKey
     confidence: float = Field(ge=0, le=1)
+
+    @model_validator(mode="after")
+    def _category_matches_subject(self) -> "PostSubject":
+        check_consistent(self.category, self.subject_key)
+        return self
 
 
 class Candidate(BaseModel):
