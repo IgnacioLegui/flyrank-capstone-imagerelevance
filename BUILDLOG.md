@@ -153,3 +153,17 @@ and what I (Ignacio) changed or decided. Updated as the work happens, not afterw
   (retried), not auto-corrected — correcting it would hide that the model was confused.
 - Ran the unedited `test_guard.py` first (`git diff -- tests/` empty): 20/20 pass. Then added
   `test_vision_schema.py` (26 tests). Total 46 passing.
+
+### Step 2 — settings + dependencies
+- `app/config.py`: settings from env/.env (python-dotenv), validated by Pydantic so a bad value like
+  `MIN_CONFIDENCE=0,7` fails at startup. `GEMINI_API_KEY` is a `SecretStr`; a test checks a fake key
+  never appears in `repr`/`str`/JSON of the settings. `.env.example` gained `VISION_MODEL`
+  (default `gemini-3.5-flash-lite`), `GEMINI_RPM`, `IMAGES_DIR`.
+- `google-genai` is now on **major version 2.x** (2.28); the brief's snippets were written for 1.x.
+  Claude Code noted it will check the real 2.x API before writing the Gemini wrapper (step 5).
+- **Environment problem:** Windows Application Control on my machine blocked SQLAlchemy 2.1's compiled
+  Cython modules (`DLL load failed … _cache_key_cy`). Claude Code did not touch the security policy;
+  it installed SQLAlchemy's official pure-Python wheel (same version, `has_compiled_ext() == False`)
+  into the local venv only. Docker/Linux is unaffected. Documented in README for evaluators on Windows.
+  (psycopg's binary build also failed the very first import, then imported fine — likely the policy
+  evaluating a brand-new file; noted, no action needed.)
