@@ -94,6 +94,15 @@ def test_request_contains_image_bytes_but_no_filename_or_path():
     assert image_part.file_data is None  # and not as an uploaded file reference
 
 
+def test_automatic_function_calling_is_disabled():
+    """One call() must be exactly one request (one cost row): the SDK may not chain extra calls."""
+    vision, client, _ = make()
+    vision.tag_image(b"x", CTX)
+    config = client.requests[0]["config"]
+    assert config.automatic_function_calling.disable is True
+    assert not config.tools
+
+
 def test_schema_sent_to_gemini_has_no_refs():
     assert "$ref" not in json.dumps(IMAGE_TAGS_SCHEMA)
     assert "red_fox" in json.dumps(IMAGE_TAGS_SCHEMA)  # enum values were inlined

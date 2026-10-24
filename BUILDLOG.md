@@ -291,3 +291,13 @@ and what I (Ignacio) changed or decided. Updated as the work happens, not afterw
 - Explained a gap: image/ai_call ids start at 2 — the CHECK-constraint test insert in step 4 and the
   cost-log smoke check in step 5 consumed sequence values (Postgres sequences don't roll back).
   Real DB contains only the smoke-test data; tests use the separate `imagerelevance_test` DB.
+
+## 2026-10-24 — Phase 2, session 2: full batch
+
+- I said "go + disable AFC" and asked the final report to also list every image whose `subject_key`
+  differs from its filename prefix — read-only, no label/threshold/image changes.
+- AFC disabled explicitly: `automatic_function_calling=AutomaticFunctionCallingConfig(disable=True)`
+  on the vision request, plus test `test_automatic_function_calling_is_disabled`. 118 tests passing.
+- Environment hiccup: Docker Desktop had stopped again; Claude Code started it, the engine took
+  ~4 minutes to come up. Meanwhile the DB tests were *skipped* (not failed) as designed — but each
+  one waited for a connection timeout, so that run took 4m23s instead of ~5 s.

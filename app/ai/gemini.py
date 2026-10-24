@@ -7,8 +7,9 @@
 5. writes exactly one cost-log row per request, whatever the outcome
    (ok / invalid_output / rate_limited / error).
 
-The SDK's own retries are switched off (attempts=1): a retry hidden inside the SDK would be a real,
-billable request with no cost row. Retrying is the worker's job, where it is visible and logged.
+The SDK's own retries are switched off (attempts=1), and so is its automatic function calling: either
+would let the SDK send extra, billable requests with no cost row. Retrying is the worker's job, where
+it is visible and logged.
 """
 
 import json
@@ -123,6 +124,11 @@ def inline_refs(schema: dict[str, Any]) -> dict[str, Any]:
 
 IMAGE_TAGS_SCHEMA = inline_refs(ImageTags.model_json_schema())
 
+# Automatic function calling lets the SDK make several requests inside one generate_content() when
+# tools are attached. We attach none, but switch it off explicitly anyway: one call() must always
+# be exactly one request, so it gets exactly one cost row.
+NO_AFC = types.AutomaticFunctionCallingConfig(disable=True)
+
 
 def retry_after_seconds(error: errors.APIError) -> float | None:
     """Find google.rpc.RetryInfo's retryDelay (e.g. "37s") anywhere in the error details."""
@@ -174,6 +180,7 @@ class GeminiVision:
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_json_schema=IMAGE_TAGS_SCHEMA,
+                automatic_function_calling=NO_AFC,
             ),
             parse=ImageTags.model_validate_json,
             ctx=ctx,
