@@ -301,3 +301,28 @@ and what I (Ignacio) changed or decided. Updated as the work happens, not afterw
 - Environment hiccup: Docker Desktop had stopped again; Claude Code started it, the engine took
   ~4 minutes to come up. Meanwhile the DB tests were *skipped* (not failed) as designed — but each
   one waited for a connection timeout, so that run took 4m23s instead of ~5 s.
+
+### Step 10 — full batch (job 2, started through `POST /jobs/ingest-images`)
+- Succeeded 50/50 in 5 min 31 s; the 3 smoke-test images were skipped (already done), 47 new calls.
+  50 calls total, all `ok`: 0 invalid output, 0 rate-limited (10 RPM under my 15), 0 errors, 0 retries.
+- **Flagged (2):** `ambiguous_01` (abstract blur) → `other`, 0.10; `ambiguous_02` (orange fur macro)
+  → `red_fox`, 0.40. No failed images.
+- **Confidence distribution:** extremely bimodal — 48 images at ≥ 0.95 (0.95 ×8, 0.98 ×17,
+  0.99 ×16, 1.00 ×7), 2 images below 0.5, nothing between 0.5 and 0.95. Any `MIN_CONFIDENCE`
+  between 0.41 and 0.95 gives exactly the same result — worth knowing for Phase 3 calibration:
+  the model's self-reported confidence separates "clear" from "unclear" images but barely ranks
+  within the clear ones.
+- **`subject_key` vs filename prefix:** every non-ambiguous image matches its prefix (48/48),
+  including the fox-coloured dogs (Shiba Inu, red Husky, Corgi → `dog`, 0.95–1.00) and all 5 wolves
+  (`gray_wolf`, 0.95–0.98). Only differences: the two `ambiguous_*` images (prefix isn't a subject).
+- Cost: $0.0337 list-price equivalent (free tier → $0 actual); ~1,366 input tokens per image;
+  0 thinking tokens. Median latency 4.5 s, max 33.2 s.
+- **Issue found during the run:** I asked for a status check when the log went quiet; it was a
+  single 33 s response from Gemini (`mountain_02`), not a hang. But it showed the Gemini request has
+  **no timeout** — a request that never returned would leave the job `running` forever. Not changed
+  mid-batch; proposed as a fix (needs my approval).
+- Image ids run 2–54 for 50 images: `ON CONFLICT DO NOTHING` still consumes a sequence value for
+  each skipped duplicate (the 3 smoke-test files re-registered by job 2) — harmless, explained.
+- Secrets check: the only "AIza…" string in the whole git history is the fake key in
+  `tests/test_config.py`; 0 log lines contain the real key; the api container has no key.
+- EVIDENCE.md filled for R1–R4, S6, P1, P6 with the real output above.
