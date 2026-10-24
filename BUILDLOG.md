@@ -326,3 +326,18 @@ and what I (Ignacio) changed or decided. Updated as the work happens, not afterw
 - Secrets check: the only "AIza…" string in the whole git history is the fake key in
   `tests/test_config.py`; 0 log lines contain the real key; the api container has no key.
 - EVIDENCE.md filled for R1–R4, S6, P1, P6 with the real output above.
+- Phase 2 gate verified by me.
+
+### Gemini request timeout (approved by me after the gate)
+- `GEMINI_TIMEOUT_S` (default 60, configurable). I asked Claude Code to check the unit instead of
+  assuming: in the installed google-genai 2.28, `HttpOptions.timeout` is **milliseconds (int)** —
+  its docs say so and `get_timeout_in_seconds()` divides by 1000 before calling httpx. Conversion
+  lives in one function, `timeout_ms()`.
+- Proof uses the **real SDK client** against a local fake Gemini server (`tests/test_timeout.py`)
+  that hangs 4 s on chosen requests: with a 0.5 s timeout the call gives up after ~0.5 s with an
+  `error` cost row ($0); in a 2-image job the first image's first try times out, it is retried and
+  tagged, the second image is tagged, the job succeeds — rows: error, ok, ok.
+- Checked the tests can fail: with the conversion made 1000× too long, the two hung-request tests
+  fail (they wait out the hang); 1000× too short, the timing test fails (it gives up too early).
+  Honest limitation: the "too short" case is caught only by that timing bound — a 1 ms timeout still
+  happens to succeed against a local server, so the other tests don't notice it.

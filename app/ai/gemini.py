@@ -13,6 +13,7 @@ it is visible and logged.
 """
 
 import json
+import math
 import re
 import time
 from collections.abc import Callable
@@ -136,12 +137,27 @@ def retry_after_seconds(error: errors.APIError) -> float | None:
     return float(match.group(1)) if match else None
 
 
-def make_client(settings: Settings) -> genai.Client:
+def timeout_ms(seconds: float) -> int:
+    """google-genai's HttpOptions.timeout is in MILLISECONDS (int) — checked in the installed SDK
+    (2.28): its docs say so and it divides by 1000 before passing the value to httpx. Our setting
+    is in seconds, so convert here, in one place."""
+    return math.ceil(seconds * 1000)
+
+
+def make_client(settings: Settings, base_url: str | None = None) -> genai.Client:
+    """base_url is only for tests (pointing the real SDK at a local fake server)."""
     if settings.gemini_api_key is None:
         raise GeminiCallError("GEMINI_API_KEY is not set (add it to .env)")
     return genai.Client(
         api_key=settings.gemini_api_key.get_secret_value(),
-        http_options=types.HttpOptions(retry_options=types.HttpRetryOptions(attempts=1)),
+        http_options=types.HttpOptions(
+            retry_options=types.HttpRetryOptions(attempts=1),
+            # Without a timeout, a request Google never answers would block the worker forever
+            # and leave the job 'running'. A timed-out request is logged as an `error` cost row
+            # and uses one of the image's attempts, like any other failed request.
+            timeout=timeout_ms(settings.gemini_timeout_s),
+            base_url=base_url,
+        ),
     )
 
 

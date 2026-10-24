@@ -32,6 +32,7 @@ class Settings(BaseModel):
     # Cost and pacing
     ai_budget_usd: float = Field(1.00, gt=0)
     gemini_rpm: float = Field(5, gt=0)  # max requests per minute the worker will send
+    gemini_timeout_s: float = Field(60, gt=0, le=600)  # give up on a single Gemini request after this
 
     @field_validator("images_dir")
     @classmethod
